@@ -10,6 +10,8 @@ export default function Terrarium() {
     const [gameState, setGameState] = useState<GameState>("MENU");
     const [score, setScore] = useState(0);
     const [finalScore, setFinalScore] = useState(0);
+    const [hp, setHp] = useState(3);
+    const [maxHp, setMaxHp] = useState(3);
 
     // Game State Refs (avoid stale closures)
     const entitiesRef = useRef<Entity[]>([]);
@@ -29,12 +31,18 @@ export default function Terrarium() {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const player = new Player(canvas.width / 2, canvas.height - 100, selectedShipRef.current);
+        const config = selectedShipRef.current;
+        const player = new Player(canvas.width / 2, canvas.height - 100, config);
         playerRef.current = player;
         entitiesRef.current = [player];
+
+        // Reset State
         scoreRef.current = 0;
-        inputRef.current = { up: false, down: false, left: false, right: false, shoot: false };
         setScore(0);
+        setHp(config.maxHp);
+        setMaxHp(config.maxHp);
+
+        inputRef.current = { up: false, down: false, left: false, right: false, shoot: false };
     };
 
     // Touch/Mouse control fallback
@@ -351,6 +359,7 @@ export default function Terrarium() {
                                 if (dist < (entity.width + other.width) / 2) {
                                     // Player Hit
                                     entity.hp--;
+                                    setHp(entity.hp); // UPDATE STATE
                                     other.isDead = true; // Enemy crashes
                                     spawnExplosion(other.x, other.y, "#ffaa00", 10);
                                     if (entity.hp <= 0) {
@@ -428,20 +437,35 @@ export default function Terrarium() {
 
             {/* HUD */}
             {gameState === "PLAYING" && (
-                <div className="pointer-events-none absolute left-4 top-4 font-mono text-xs text-cyan-500/80">
-                    <div className="border border-cyan-500/30 bg-black/80 p-4 backdrop-blur">
-                        <h2 className="mb-2 text-sm font-bold uppercase tracking-wider text-cyan-400">
-                            PILOT DATA // {selectedShipRef.current?.name}
-                        </h2>
-                        <div className="space-y-1">
-                            <p className="text-xl text-white">SCORE: {score}</p>
-                            <div className="flex gap-1">
-                                <p>HP:</p>
-                                <div className="flex">
-                                    {playerRef.current && Array.from({ length: Math.max(0, playerRef.current.hp) }).map((_, i) => (
-                                        <div key={i} className="h-3 w-3 bg-red-500 mr-1"></div>
-                                    ))}
-                                </div>
+                <div className="pointer-events-none absolute z-50 left-0 top-0 w-full p-6 flex justify-between items-start font-mono text-xs uppercase tracking-wider text-cyan-400">
+
+                    {/* LEFT: PILOT INFO */}
+                    <div className="flex flex-col gap-2">
+                        <div className="bg-black/80 backdrop-blur border border-cyan-500/30 p-4 min-w-[200px]">
+                            <h2 className="text-cyan-600 mb-2">// PILOT: {selectedShipRef.current?.name}</h2>
+                            <div className="flex items-end gap-2 text-white">
+                                <span className="text-4xl font-bold leading-none">{score.toString().padStart(6, '0')}</span>
+                                <span className="text-xs text-cyan-500 mb-1">PTS</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* RIGHT: SYSTEMS */}
+                    <div className="flex flex-col gap-2 items-end">
+                        <div className="bg-black/80 backdrop-blur border border-red-500/30 p-4 min-w-[200px]">
+                            <div className="flex justify-between mb-2">
+                                <h2 className="text-red-500">// SHIELD INTEGRITY</h2>
+                                <span className="text-red-400">{Math.ceil((hp / maxHp) * 100)}%</span>
+                            </div>
+
+                            <div className="flex gap-1 justify-end">
+                                {Array.from({ length: maxHp }).map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className={`h-4 w-8 border border-red-900 transition-all duration-300 ${i < hp ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" : "bg-transparent opacity-20"
+                                            }`}
+                                    />
+                                ))}
                             </div>
                         </div>
                     </div>

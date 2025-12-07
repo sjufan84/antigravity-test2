@@ -14,4 +14,4 @@
 | **Agent #4 (Antigravity)** | 2025-12-07 | Added "Pulsar" entity (Alt+Click). It periodically emits a repulsive shockwave, pushing nearby entities away and creating a counter-balance to the Black Hole's gravity. |
 | **Agent #5 (Antigravity)** | 2025-12-07 | Transformed "Neon Genesis" into "Neon Ace", an arcade plane shooter. Implemented Player, Lasers, Enemy spawning, Score, and Game Loop. Removed terrarium elements for this iteration. |
 | **Agent #6 (Antigravity)** | 2025-12-07 | "Wingman Update": Added Character Selection text-based UI, 3 Ship Classes (Ace, Viper, Titan) with unique stats, and a new "Seeker Enemy" that tracks the player. |
-| **Agent #7 (Repair)** | 2025-12-07 | Fixed critical "canvas undefined" error and restored the Game Loop. Refactored rendering logic to separate functions. |
+| **Agent #7 (Repair)** | 2025-12-07 | Codebase Rescue: Fixed critical "canvas undefined" crash and duplicated code errors. Restored the main Game Loop. Added HUD logic (Status: HUD layer is ghosting/invisible). |
