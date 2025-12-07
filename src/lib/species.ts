@@ -11,10 +11,63 @@ export interface Entity {
     isDead: boolean;
     faction: "player" | "enemy" | "neutral";
     hp: number;
+    maxHp: number; // Added maxHp for health bars
 
     update: (canvas: HTMLCanvasElement, entities: Entity[], input?: InputState) => void;
     draw: (ctx: CanvasRenderingContext2D) => void;
 }
+
+export type PlayerConfig = {
+    name: string;
+    speed: number;
+    color: string;
+    maxHp: number;
+    fireRate: number; // Lower is faster
+    bulletSpeed: number;
+    bulletDamage: number;
+    bulletColor: string;
+    bulletCount: 1 | 2 | 3;
+    description: string;
+};
+
+export const SHIP_PRESETS: Record<string, PlayerConfig> = {
+    ACE: {
+        name: "ACE",
+        speed: 7,
+        color: "#00f3ff",
+        maxHp: 3,
+        fireRate: 8,
+        bulletSpeed: 15,
+        bulletDamage: 1,
+        bulletColor: "#00ff00",
+        bulletCount: 2,
+        description: "Balanced. Reliable. The classic choice."
+    },
+    VIPER: {
+        name: "VIPER",
+        speed: 10,
+        color: "#fae100", // Yellow
+        maxHp: 2,
+        fireRate: 4,
+        bulletSpeed: 20,
+        bulletDamage: 0.5,
+        bulletColor: "#ffff00",
+        bulletCount: 1,
+        description: "Fast. Rapid fire. Fragile."
+    },
+    TITAN: {
+        name: "TITAN",
+        speed: 4,
+        color: "#a200ff", // Purple
+        maxHp: 5,
+        fireRate: 15, // Slow fire
+        bulletSpeed: 10,
+        bulletDamage: 3,
+        bulletColor: "#d400ff",
+        bulletCount: 3, // Spread
+        description: "Heavy armor. Spread shot. Slow."
+    }
+};
 
 export type InputState = {
     up: boolean;
@@ -36,7 +89,9 @@ export class Particle implements Entity {
     vx: number;
     vy: number;
     color: string;
+
     hp: number = 1;
+    maxHp: number = 1;
     isDead: boolean = false;
     life: number = 20;
 
@@ -79,13 +134,18 @@ export class Laser implements Entity {
     vx: number = 0;
     vy: number = -15; // Moves up fast
     color: string = "#00ff00";
+    damage: number = 1;
     hp: number = 1;
+    maxHp: number = 1;
     isDead: boolean = false;
 
-    constructor(x: number, y: number) {
+    constructor(x: number, y: number, color: string, speed: number, damage: number) {
         this.id = Math.random().toString(36).slice(2);
         this.x = x;
         this.y = y;
+        this.color = color;
+        this.vy = -speed;
+        this.damage = damage;
     }
 
     update(canvas: HTMLCanvasElement) {
@@ -116,21 +176,30 @@ export class Player implements Entity {
     vy: number = 0;
     color: string = "#00f3ff";
     hp: number = 3;
+    maxHp: number = 3;
     isDead: boolean = false;
+
+    // Config
+    config: PlayerConfig;
 
     // Weapon cooldown
     cooldown: number = 0;
-    maxCooldown: number = 8; // ~8 frames between shots
 
-    constructor(x: number, y: number) {
+    constructor(x: number, y: number, config: PlayerConfig) {
         this.id = "player";
         this.x = x;
         this.y = y;
+        this.config = config;
+
+        // Apply Config
+        this.color = config.color;
+        this.hp = config.maxHp;
+        this.maxHp = config.maxHp;
     }
 
     update(canvas: HTMLCanvasElement, entities: Entity[], input?: InputState) {
         // Movement
-        const speed = 7;
+        const speed = this.config.speed;
         const friction = 0.9;
 
         if (input) {
@@ -142,7 +211,7 @@ export class Player implements Entity {
             // Shooting
             if (input.shoot && this.cooldown <= 0) {
                 this.shoot(entities);
-                this.cooldown = this.maxCooldown;
+                this.cooldown = this.config.fireRate;
             }
         }
 
@@ -161,10 +230,19 @@ export class Player implements Entity {
     }
 
     shoot(entities: Entity[]) {
-        // Spawn laser
-        const laser1 = new Laser(this.x - 10, this.y);
-        const laser2 = new Laser(this.x + 10, this.y);
-        entities.push(laser1, laser2);
+        if (this.config.bulletCount === 1) {
+            entities.push(new Laser(this.x, this.y, this.config.bulletColor, this.config.bulletSpeed, this.config.bulletDamage));
+        } else if (this.config.bulletCount === 2) {
+            entities.push(new Laser(this.x - 10, this.y, this.config.bulletColor, this.config.bulletSpeed, this.config.bulletDamage));
+            entities.push(new Laser(this.x + 10, this.y, this.config.bulletColor, this.config.bulletSpeed, this.config.bulletDamage));
+        } else if (this.config.bulletCount === 3) {
+            const l = new Laser(this.x - 15, this.y + 5, this.config.bulletColor, this.config.bulletSpeed, this.config.bulletDamage);
+            l.vx = -2;
+            const c = new Laser(this.x, this.y, this.config.bulletColor, this.config.bulletSpeed, this.config.bulletDamage);
+            const r = new Laser(this.x + 15, this.y + 5, this.config.bulletColor, this.config.bulletSpeed, this.config.bulletDamage);
+            r.vx = 2;
+            entities.push(l, c, r);
+        }
     }
 
     draw(ctx: CanvasRenderingContext2D) {
@@ -209,6 +287,7 @@ export class Enemy implements Entity {
     vy: number = 0;
     color: string = "#ff0055";
     hp: number = 1;
+    maxHp: number = 1;
     isDead: boolean = false;
 
     behavior: "diver" | "strafer" = "diver";
@@ -221,9 +300,10 @@ export class Enemy implements Entity {
         this.behavior = Math.random() > 0.5 ? "diver" : "strafer";
         this.hp = Math.floor(Math.random() * difficulty) + 1;
         this.width = 30 + this.hp * 5; // Bigger = stronger
+        this.maxHp = this.hp;
     }
 
-    update(canvas: HTMLCanvasElement) {
+    update(canvas: HTMLCanvasElement, entities: Entity[]) {
         this.time++;
 
         if (this.behavior === "diver") {
@@ -254,6 +334,73 @@ export class Enemy implements Entity {
         ctx.shadowBlur = 10;
         ctx.shadowColor = this.color;
         ctx.fill();
+        ctx.restore();
+    }
+}
+
+
+export class SeekerEnemy extends Enemy {
+    constructor(x: number, y: number, difficulty: number) {
+        super(x, y, difficulty);
+        this.color = "#ff8800"; // Orange
+        this.hp = Math.floor(difficulty * 1.5) + 2; // Tougher
+        this.width = 40;
+    }
+
+    update(canvas: HTMLCanvasElement, entities: Entity[]) {
+        this.time++;
+
+        // Find player
+        const player = entities.find(e => e.type === "player");
+        if (player) {
+            const dx = player.x - this.x;
+            const dy = player.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > 0) {
+                this.vx += (dx / dist) * 0.2; // Acceleration
+                this.vy += (dy / dist) * 0.2;
+            }
+        } else {
+            this.vy += 0.1;
+        }
+
+        // Speed cap
+        const maxSpeed = 3;
+        const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        if (currentSpeed > maxSpeed) {
+            this.vx = (this.vx / currentSpeed) * maxSpeed;
+            this.vy = (this.vy / currentSpeed) * maxSpeed;
+        }
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Cleanup
+        if (this.y > canvas.height + 50 || this.y < -100) this.isDead = true;
+    }
+
+    draw(ctx: CanvasRenderingContext2D) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        // Diamond Shape
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.moveTo(0, 20);
+        ctx.lineTo(15, 0);
+        ctx.lineTo(0, -20);
+        ctx.lineTo(-15, 0);
+        ctx.closePath();
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.color;
+
+        // Eye
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.restore();
     }
 }

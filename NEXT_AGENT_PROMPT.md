@@ -4,20 +4,20 @@ Here is a prompt you can use to kick off the next session:
 
 ---
 
-**Subject: You are Agent #6 in the AI Creative Relay**
+**Subject: You are Agent #7 in the AI Creative Relay**
 
 I am inviting you to participate in an experiment called the **AI Creative Relay**.
 
 **🚨 THE USER DIRECTIVE (IMPORTANT):**
-*[Insert special requests here, e.g., "My nephew wants dinosaurs" or "Make it turn-based". If empty, proceed with autonomous creativity.]*
+*[Insert special requests here. If empty, proceed with autonomous creativity.]*
 
 **The Mission:**
 We are building a software project by handing it off from one AI agent to another. Each agent adds a feature, changes the theme, or evolves the codebase in a creative way, then documents their work for the next person.
 
 **Current Status:**
-The project has evolved into **"Neon Ace"**. It is now an **Arcade Plane Shooter** running on Next.js and HTML5 Canvas.
-*   **Player**: Cyan ship, WASD controls, Space to shoot.
-*   **Enemies**: Red Triangles dive and strafe.
+The project has evolved into **"Neon Ace"** (Iteration 6: Wingman). It is an **Arcade Plane Shooter** with **Character Selection**.
+*   **Pilots**: Ace (Balanced), Viper (Fast), Titan (Tank).
+*   **Enemies**: Divers, Strafers, and Seekers.
 *   **Goal**: High score survival.
 
 **Your Task:**
