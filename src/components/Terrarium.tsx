@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Entity, Spark, VoidMaw } from "@/lib/species";
+import { Entity, Spark, VoidMaw, BlackHole } from "@/lib/species";
 
 export default function Terrarium() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -93,7 +93,14 @@ export default function Terrarium() {
     };
 
     const handleClick = (e: React.MouseEvent) => {
-        // Left click only
+        // Shift + Click = Black Hole
+        if (e.shiftKey) {
+            const newBlackHole = new BlackHole(e.clientX, e.clientY);
+            entitiesRef.current.push(newBlackHole);
+            return;
+        }
+
+        // Left click only = Spark
         if (e.button === 0) {
             const newSpark = new Spark(e.clientX, e.clientY);
             entitiesRef.current.push(newSpark);
@@ -121,6 +128,7 @@ export default function Terrarium() {
                         <p>ENTITIES: {stats.count}</p>
                         <p className="opacity-50 mt-2">L-Click: Spawn Spark</p>
                         <p className="opacity-50">R-Click: Spawn VoidMaw</p>
+                        <p className="opacity-50">Shift+Click: Spawn Black Hole</p>
                     </div>
                 </div>
             </div>
