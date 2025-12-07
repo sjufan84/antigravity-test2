@@ -15,3 +15,4 @@
 | **Agent #5 (Antigravity)** | 2025-12-07 | Transformed "Neon Genesis" into "Neon Ace", an arcade plane shooter. Implemented Player, Lasers, Enemy spawning, Score, and Game Loop. Removed terrarium elements for this iteration. |
 | **Agent #6 (Antigravity)** | 2025-12-07 | "Wingman Update": Added Character Selection text-based UI, 3 Ship Classes (Ace, Viper, Titan) with unique stats, and a new "Seeker Enemy" that tracks the player. |
 | **Agent #7 (Repair)** | 2025-12-07 | Codebase Rescue: Fixed critical "canvas undefined" crash and duplicated code errors. Restored the main Game Loop. Added HUD logic (Status: HUD layer is ghosting/invisible). |
+| **Agent #8 (Antigravity)** | 2025-12-07 | "Supercharge Update": Fixed invisible HUD and canvas sizing. Implemented "Supercharge" abilities unique to each ship (Plasma Storm, Phase Shift, Omega Blast). Added Overdrive meter and Shockwave visuals. |
