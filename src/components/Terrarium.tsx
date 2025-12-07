@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Entity, Spark } from "@/lib/species";
+import { Entity, Spark, VoidMaw } from "@/lib/species";
 
 export default function Terrarium() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -19,8 +19,12 @@ export default function Terrarium() {
         const initialSparks = Array.from({ length: 20 }, () =>
             new Spark(window.innerWidth / 2, window.innerHeight / 2)
         );
-        entitiesRef.current = initialSparks;
-        setEntities(initialSparks);
+        const initialMaws = Array.from({ length: 2 }, () =>
+            new VoidMaw(Math.random() * window.innerWidth, Math.random() * window.innerHeight)
+        );
+
+        entitiesRef.current = [...initialSparks, ...initialMaws] as Entity[];
+        setEntities(entitiesRef.current);
 
         const resize = () => {
             if (canvasRef.current) {
@@ -53,10 +57,21 @@ export default function Terrarium() {
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Update & Draw
+            // We need to filter dead entities.
+            // Since update() might mark entities as dead, we should filter next frame or right here.
+            // Let's filter *after* update/draw to keep them for one frame of "death" if needed, 
+            // but actually we want to remove them before the next logical step.
+            // Simpler: Update all, then filter dead ones from the ref for the next frame.
+
             entitiesRef.current.forEach((entity) => {
-                entity.update(canvas);
-                entity.draw(ctx);
+                if (!entity.isDead) { // Only update living things
+                    entity.update(canvas, entitiesRef.current);
+                    entity.draw(ctx);
+                }
             });
+
+            // Cleanup dead entities
+            entitiesRef.current = entitiesRef.current.filter(e => !e.isDead);
 
             // Update Stats (throttled)
             if (frameRef.current % 30 === 0) {
@@ -71,13 +86,18 @@ export default function Terrarium() {
         return () => cancelAnimationFrame(frameRef.current);
     }, []);
 
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+        const newMaw = new VoidMaw(e.clientX, e.clientY);
+        entitiesRef.current.push(newMaw);
+    };
+
     const handleClick = (e: React.MouseEvent) => {
-        const newSpark = new Spark(e.clientX, e.clientY);
-        entitiesRef.current.push(newSpark);
-        // Force re-render for UI count update if needed immediately, 
-        // but the loop handles stats. 
-        // We intentionally don't setEntities here to avoid re-triggering the effect loop 
-        // (refs are used for the loop state).
+        // Left click only
+        if (e.button === 0) {
+            const newSpark = new Spark(e.clientX, e.clientY);
+            entitiesRef.current.push(newSpark);
+        }
     };
 
     return (
@@ -85,6 +105,7 @@ export default function Terrarium() {
             <canvas
                 ref={canvasRef}
                 onClick={handleClick}
+                onContextMenu={handleContextMenu}
                 className="block cursor-crosshair touch-none"
             />
 
@@ -98,7 +119,8 @@ export default function Terrarium() {
                         <p>SIMULATION: NEON GENESIS</p>
                         <p>FPS: {stats.fps}</p>
                         <p>ENTITIES: {stats.count}</p>
-                        <p className="opacity-50 mt-2">Click to spawn Spark</p>
+                        <p className="opacity-50 mt-2">L-Click: Spawn Spark</p>
+                        <p className="opacity-50">R-Click: Spawn VoidMaw</p>
                     </div>
                 </div>
             </div>
