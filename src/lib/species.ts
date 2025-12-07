@@ -1,6 +1,6 @@
 export interface Entity {
     id: string;
-    type: "spark" | "voidmaw" | "blackhole";
+    type: "spark" | "voidmaw" | "blackhole" | "pulsar";
     x: number;
     y: number;
     dx: number;
@@ -262,5 +262,102 @@ export class BlackHole implements Entity {
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.closePath();
+    }
+}
+
+export class Pulsar implements Entity {
+    id: string;
+    type: "pulsar" = "pulsar";
+    x: number;
+    y: number;
+    dx: number = 0;
+    dy: number = 0;
+    size: number;
+    color: string = "#ffbd00"; // Gold/Orange
+    isDead: boolean = false;
+
+    // Pulse mechanics
+    range: number = 250;
+    pulseFrequency: number = 180; // frames
+    pulseTimer: number = 0;
+    isPulsing: boolean = false;
+    pulseRadius: number = 0;
+
+    constructor(x: number, y: number) {
+        this.id = Math.random().toString(36).substr(2, 9);
+        this.x = x;
+        this.y = y;
+        this.size = 12;
+        this.pulseTimer = Math.floor(Math.random() * this.pulseFrequency);
+    }
+
+    update(_canvas: HTMLCanvasElement, entities: Entity[]) {
+        this.pulseTimer++;
+
+        // Trigger Pulse
+        if (this.pulseTimer >= this.pulseFrequency) {
+            this.pulseTimer = 0;
+            this.isPulsing = true;
+            this.pulseRadius = this.size;
+
+            // Apply force
+            entities.forEach(e => {
+                if (e.id !== this.id && e.type !== "blackhole" && e.type !== "pulsar" && !e.isDead) { // Don't move loose black holes or other pulsars for now
+                    const dx = e.x - this.x;
+                    const dy = e.y - this.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist < this.range) {
+                        const forceMagnitude = 20; // Immediate kick
+                        const angle = Math.atan2(dy, dx);
+                        e.dx += Math.cos(angle) * forceMagnitude;
+                        e.dy += Math.sin(angle) * forceMagnitude;
+                    }
+                }
+            });
+        }
+
+        // Animate Pulse Wave
+        if (this.isPulsing) {
+            this.pulseRadius += 10; // Expand fast
+            if (this.pulseRadius > this.range) {
+                this.isPulsing = false;
+                this.pulseRadius = 0;
+            }
+        }
+    }
+
+    draw(ctx: CanvasRenderingContext2D) {
+        // Shockwave
+        if (this.isPulsing) {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.pulseRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 189, 0, ${1 - this.pulseRadius / this.range})`;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.closePath();
+        }
+
+        // Inner core
+        ctx.beginPath();
+        const spin = (Date.now() / 200);
+        // Draw a rotating square or something different
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(spin);
+        ctx.fillStyle = this.color;
+        ctx.fillRect(-this.size, -this.size, this.size * 2, this.size * 2);
+        ctx.restore();
+        ctx.closePath();
+
+        // Build up indicator
+        if (!this.isPulsing) {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size * (this.pulseTimer / this.pulseFrequency) + 5, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(255, 189, 0, 0.3)";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.closePath();
+        }
     }
 }
