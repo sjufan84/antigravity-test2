@@ -1,6 +1,6 @@
 export interface Entity {
     id: string;
-    type: "player" | "laser" | "enemy" | "particle";
+    type: "player" | "laser" | "enemy" | "particle" | "shockwave";
     x: number;
     y: number;
     width: number;
@@ -12,6 +12,9 @@ export interface Entity {
     faction: "player" | "enemy" | "neutral";
     hp: number;
     maxHp: number; // Added maxHp for health bars
+    charge?: number; // 0-100
+    maxCharge?: number; // 100
+
 
     update: (canvas: HTMLCanvasElement, entities: Entity[], input?: InputState) => void;
     draw: (ctx: CanvasRenderingContext2D) => void;
@@ -75,6 +78,7 @@ export type InputState = {
     left: boolean;
     right: boolean;
     shoot: boolean;
+    supercharge: boolean;
 };
 
 // --- PARTICLES ---
@@ -122,6 +126,63 @@ export class Particle implements Entity {
     }
 }
 
+// --- SHOCKWAVE (Titan Omega Blast visual) ---
+export class Shockwave implements Entity {
+    id: string;
+    type: "shockwave" = "shockwave";
+    faction: "neutral" = "neutral";
+    x: number;
+    y: number;
+    width: number = 0;
+    height: number = 0;
+    vx: number = 0;
+    vy: number = 0;
+    color: string;
+    hp: number = 1;
+    maxHp: number = 1;
+    isDead: boolean = false;
+
+    radius: number = 0;
+    maxRadius: number = 800;
+    life: number = 30;
+    maxLife: number = 30;
+
+    constructor(x: number, y: number, color: string = "#d400ff") {
+        this.id = Math.random().toString(36).slice(2);
+        this.x = x;
+        this.y = y;
+        this.color = color;
+    }
+
+    update() {
+        this.radius += (this.maxRadius - this.radius) * 0.15; // Easing expansion
+        this.life--;
+        if (this.life <= 0) this.isDead = true;
+    }
+
+    draw(ctx: CanvasRenderingContext2D) {
+        const alpha = this.life / this.maxLife;
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.6;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 8 * alpha;
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner glow ring
+        ctx.globalAlpha = alpha * 0.3;
+        ctx.lineWidth = 20 * alpha;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 0.8, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+}
+
 // --- LASER ---
 export class Laser implements Entity {
     id: string;
@@ -149,9 +210,13 @@ export class Laser implements Entity {
     }
 
     update(canvas: HTMLCanvasElement) {
+        this.x += this.vx;
         this.y += this.vy;
-        // Kill if off screen
-        if (this.y < -50) this.isDead = true;
+        // Kill if off screen (any direction)
+        if (this.y < -50 || this.y > canvas.height + 50 ||
+            this.x < -50 || this.x > canvas.width + 50) {
+            this.isDead = true;
+        }
     }
 
     draw(ctx: CanvasRenderingContext2D) {
@@ -177,6 +242,10 @@ export class Player implements Entity {
     color: string = "#00f3ff";
     hp: number = 3;
     maxHp: number = 3;
+    charge: number = 0;
+    maxCharge: number = 100;
+    isSupercharging: boolean = false;
+    superchargeDuration: number = 0;
     isDead: boolean = false;
 
     // Config
@@ -213,6 +282,10 @@ export class Player implements Entity {
                 this.shoot(entities);
                 this.cooldown = this.config.fireRate;
             }
+
+            if (input.supercharge) {
+                this.triggerSupercharge(entities);
+            }
         }
 
         this.cooldown--;
@@ -227,6 +300,81 @@ export class Player implements Entity {
         if (this.x > canvas.width) this.x = canvas.width;
         if (this.y < 0) this.y = 0;
         if (this.y > canvas.height) this.y = canvas.height;
+
+        // Supercharge Logic
+        if (this.isSupercharging) {
+            this.superchargeDuration--;
+            // Visual drain - use correct max duration per ship
+            const maxDuration = this.config.name === "ACE" ? 180 :
+                this.config.name === "TITAN" ? 30 : 300;
+            this.charge = (this.superchargeDuration / maxDuration) * 100;
+
+            if (this.config.name === "VIPER") {
+                // Phase Shift: Invincibility logic handled in collision check
+                // Speed boost was applied below in movement? No, visual effect mainly.
+            } else if (this.config.name === "ACE") {
+                // Plasma Storm: Auto fire in all directions (optimized to prevent memory issues)
+                if (this.superchargeDuration % 15 === 0) {
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (i / 6) * Math.PI * 2;
+                        const l = new Laser(this.x, this.y, "#ff00ff", 12, 1);
+                        l.vx = Math.cos(angle) * 12;
+                        l.vy = Math.sin(angle) * 12;
+                        entities.push(l);
+                    }
+                }
+            } else if (this.config.name === "TITAN") {
+                // Omega: One time blast, handled in trigger.
+            }
+
+            if (this.superchargeDuration <= 0) {
+                this.isSupercharging = false;
+                this.charge = 0;
+            }
+        } else {
+            // Passive charge? No, only on kill.
+            if (this.charge > this.maxCharge) this.charge = this.maxCharge;
+        }
+    }
+
+    triggerSupercharge(entities: Entity[]) {
+        if (this.charge >= 100 && !this.isSupercharging) {
+            this.isSupercharging = true;
+
+            // Different durations per ship to balance gameplay
+            if (this.config.name === "ACE") {
+                this.superchargeDuration = 180; // 3 seconds - shorter to prevent entity buildup
+            } else if (this.config.name === "VIPER") {
+                this.superchargeDuration = 300; // 5 seconds for phase shift
+            } else {
+                this.superchargeDuration = 300; // Default 5 seconds
+            }
+
+            if (this.config.name === "TITAN") {
+                // Omega Blast: Kill all enemies on screen with dramatic visual effect
+
+                // Spawn shockwave from player
+                entities.push(new Shockwave(this.x, this.y, "#d400ff"));
+
+                // Kill all enemies and spawn explosions
+                entities.forEach(e => {
+                    if (e.type === "enemy") {
+                        // Spawn explosion particles at enemy location
+                        for (let i = 0; i < 15; i++) {
+                            entities.push(new Particle(e.x, e.y, "#d400ff", 4));
+                        }
+                        for (let i = 0; i < 10; i++) {
+                            entities.push(new Particle(e.x, e.y, "#ffffff", 3));
+                        }
+                        e.hp = 0;
+                        e.isDead = true;
+                    }
+                });
+
+                // Instant drain for Titan as it's a one-shot
+                this.superchargeDuration = 30; // Visual flare duration
+            }
+        }
     }
 
     shoot(entities: Entity[]) {
@@ -260,6 +408,16 @@ export class Player implements Entity {
 
         ctx.shadowBlur = 15;
         ctx.shadowColor = this.color;
+
+        // Supercharge Visuals
+        if (this.isSupercharging) {
+            ctx.shadowBlur = 30 + Math.random() * 20;
+            ctx.shadowColor = "#ffffff";
+            if (this.config.name === "VIPER") {
+                ctx.globalAlpha = 0.5 + Math.random() * 0.5; // Flicker
+            }
+        }
+
         ctx.fill();
 
         // Engine flame

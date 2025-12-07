@@ -24,8 +24,11 @@ export default function Terrarium() {
         down: false,
         left: false,
         right: false,
-        shoot: false
+        shoot: false,
+        supercharge: false
     });
+    // DOM Ref for smoother UI updates
+    const chargeBarRef = useRef<HTMLDivElement>(null);
 
     const resetGame = () => {
         const canvas = canvasRef.current;
@@ -42,7 +45,12 @@ export default function Terrarium() {
         setHp(config.maxHp);
         setMaxHp(config.maxHp);
 
-        inputRef.current = { up: false, down: false, left: false, right: false, shoot: false };
+        setMaxHp(config.maxHp);
+
+        // Reset Charge
+        player.charge = 0;
+
+        inputRef.current = { up: false, down: false, left: false, right: false, shoot: false, supercharge: false };
     };
 
     // Touch/Mouse control fallback
@@ -75,6 +83,7 @@ export default function Terrarium() {
                 case "ArrowLeft": case "KeyA": inputRef.current.left = true; break;
                 case "ArrowRight": case "KeyD": inputRef.current.right = true; break;
                 case "Space": inputRef.current.shoot = true; break;
+                case "ShiftLeft": case "ShiftRight": case "KeyE": inputRef.current.supercharge = true; break;
             }
         };
 
@@ -85,6 +94,7 @@ export default function Terrarium() {
                 case "ArrowLeft": case "KeyA": inputRef.current.left = false; break;
                 case "ArrowRight": case "KeyD": inputRef.current.right = false; break;
                 case "Space": inputRef.current.shoot = false; break;
+                case "ShiftLeft": case "ShiftRight": case "KeyE": inputRef.current.supercharge = false; break;
             }
         };
 
@@ -215,9 +225,17 @@ export default function Terrarium() {
                 ctx.fillText(line, x + cardWidth / 2, ly);
 
                 // Key Hint
+                // Shoot input handled in player update
+
+                // Supercharge Input
+                // Key Hint
                 ctx.fillStyle = "#fff";
                 ctx.font = "bold 16px Courier New";
                 ctx.fillText(`PRESS [${index + 1}]`, x + cardWidth / 2, y + cardHeight - 20);
+
+                // Description
+                // Key Hint
+
             });
         };
 
@@ -326,6 +344,13 @@ export default function Terrarium() {
                 drawShipSelection();
             }
             else if (gameState === "PLAYING") {
+                // Update Charge Bar imperatively for 60fps smoothness
+                if (chargeBarRef.current && playerRef.current) {
+                    const pct = playerRef.current.charge || 0;
+                    chargeBarRef.current.style.width = `${pct}%`;
+
+                    // Optional: Visual flare handled by CSS shadow but we could toggle classes here if needed
+                }
 
                 // Spawn Enemeies
                 if (Math.random() < 0.02) {
@@ -384,9 +409,15 @@ export default function Terrarium() {
                                     if (other.hp <= 0) {
                                         other.isDead = true;
                                         spawnExplosion(other.x, other.y, other.color, 15);
+
                                         if (other.type === "enemy") {
                                             scoreRef.current += 100;
                                             setScore(scoreRef.current);
+
+                                            // Charge on kill
+                                            if (playerRef.current && !playerRef.current.isSupercharging) {
+                                                playerRef.current.charge = Math.min(playerRef.current.maxCharge, playerRef.current.charge + 10);
+                                            }
                                         }
                                     }
                                 }
@@ -432,12 +463,12 @@ export default function Terrarium() {
         >
             <canvas
                 ref={canvasRef}
-                className="block cursor-none"
+                className="block cursor-none fixed inset-0 z-0 w-full h-full"
             />
 
             {/* HUD */}
             {gameState === "PLAYING" && (
-                <div className="pointer-events-none absolute z-50 left-0 top-0 w-full p-6 flex justify-between items-start font-mono text-xs uppercase tracking-wider text-cyan-400">
+                <div className="pointer-events-none fixed z-[9999] left-0 top-0 w-full p-6 flex justify-between items-start font-mono text-xs uppercase tracking-wider text-cyan-400 border-2 border-transparent">
 
                     {/* LEFT: PILOT INFO */}
                     <div className="flex flex-col gap-2">
@@ -467,6 +498,21 @@ export default function Terrarium() {
                                     />
                                 ))}
                             </div>
+                        </div>
+
+                        {/* SUPERCHARGE METER */}
+                        <div className="bg-black/80 backdrop-blur border border-yellow-500/30 p-4 min-w-[200px] mt-2">
+                            <h2 className="text-yellow-500 mb-2">// OVERDRIVE</h2>
+                            <div className="w-full bg-gray-900 h-4 border border-yellow-900">
+                                <div
+                                    ref={chargeBarRef}
+                                    className="h-full bg-yellow-400 transition-all duration-75 shadow-[0_0_10px_rgba(250,204,21,0.5)]"
+                                    style={{ width: "0%" }}
+                                />
+                            </div>
+                            {(playerRef.current?.charge || 0) >= 100 && (
+                                <div className="text-center text-yellow-300 text-xs mt-1 animate-pulse">READY [PRESS SHIFT]</div>
+                            )}
                         </div>
                     </div>
                 </div>

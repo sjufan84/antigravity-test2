@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --foreground-rgb: 0, 0, 0;
@@ -19,5 +17,6 @@
 body {
   color: rgb(var(--foreground-rgb));
   background: #000;
-  overflow: hidden; /* Hide scrollbars */
+  overflow: hidden;
+  /* Hide scrollbars */
 }
