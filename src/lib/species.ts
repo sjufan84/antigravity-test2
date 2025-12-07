@@ -69,6 +69,30 @@ export const SHIP_PRESETS: Record<string, PlayerConfig> = {
         bulletColor: "#d400ff",
         bulletCount: 3, // Spread
         description: "Heavy armor. Spread shot. Slow."
+    },
+    PHANTOM: {
+        name: "PHANTOM",
+        speed: 9,
+        color: "#ffffff", // White/Ghostly
+        maxHp: 2,
+        fireRate: 6,
+        bulletSpeed: 12,
+        bulletDamage: 1.5,
+        bulletColor: "#aaddff", // Pale Blue
+        bulletCount: 1,
+        description: "Stealth. Evasive. Sine-wave attacks."
+    },
+    INFERNO: {
+        name: "INFERNO",
+        speed: 6,
+        color: "#ff4400", // Red/Orange
+        maxHp: 4,
+        fireRate: 5,
+        bulletSpeed: 18,
+        bulletDamage: 1.2,
+        bulletColor: "#ffaa00",
+        bulletCount: 2,
+        description: "Aggressive. Fire-based. Burn them all."
     }
 };
 
@@ -199,17 +223,25 @@ export class Laser implements Entity {
     hp: number = 1;
     maxHp: number = 1;
     isDead: boolean = false;
+    behavior: "straight" | "sine" = "straight"; // Added pattern support
+    time: number = 0;
 
-    constructor(x: number, y: number, color: string, speed: number, damage: number) {
+    constructor(x: number, y: number, color: string, speed: number, damage: number, behavior: "straight" | "sine" = "straight") {
         this.id = Math.random().toString(36).slice(2);
         this.x = x;
         this.y = y;
         this.color = color;
         this.vy = -speed;
         this.damage = damage;
+        this.behavior = behavior;
     }
 
     update(canvas: HTMLCanvasElement) {
+        this.time++;
+        if (this.behavior === "sine") {
+            this.vx = Math.sin(this.time * 0.2) * 5;
+        }
+
         this.x += this.vx;
         this.y += this.vy;
         // Kill if off screen (any direction)
@@ -325,6 +357,30 @@ export class Player implements Entity {
                 }
             } else if (this.config.name === "TITAN") {
                 // Omega: One time blast, handled in trigger.
+            } else if (this.config.name === "PHANTOM") {
+                // Mirage: Spawn clones visually (particles) + Projectiles pass through enemies? 
+                // Let's make it spawn "Ghost" bullets rapidly in a spread
+                if (this.superchargeDuration % 5 === 0) {
+                    const l = new Laser(this.x, this.y, "#ffffff", 18, 1, "sine");
+                    // Random spread
+                    l.vx = (Math.random() - 0.5) * 10;
+                    entities.push(l);
+                }
+            } else if (this.config.name === "INFERNO") {
+                // Dragon Breath: Cone of destruction
+                // THROTTLED to prevent crash/lag
+                if (this.superchargeDuration % 4 === 0) {
+                    for (let i = 0; i < 3; i++) {
+                        const spread = (Math.random() - 0.5) * 5;
+                        entities.push(new Particle(this.x + spread * 5, this.y - 20, "#ff4400", 6));
+                        // Short range damage zones?
+                        // Use short range lasers
+                        const l = new Laser(this.x + spread * 5, this.y, "#ffaa00", 20, 0.5);
+                        l.vx = spread;
+                        l.height = 10;
+                        entities.push(l);
+                    }
+                }
             }
 
             if (this.superchargeDuration <= 0) {
@@ -346,6 +402,10 @@ export class Player implements Entity {
                 this.superchargeDuration = 180; // 3 seconds - shorter to prevent entity buildup
             } else if (this.config.name === "VIPER") {
                 this.superchargeDuration = 300; // 5 seconds for phase shift
+            } else if (this.config.name === "PHANTOM") {
+                this.superchargeDuration = 240; // 4s
+            } else if (this.config.name === "INFERNO") {
+                this.superchargeDuration = 120; // 2s intense burst
             } else {
                 this.superchargeDuration = 300; // Default 5 seconds
             }
@@ -378,7 +438,16 @@ export class Player implements Entity {
     }
 
     shoot(entities: Entity[]) {
-        if (this.config.bulletCount === 1) {
+        if (this.config.name === "PHANTOM") {
+            // Sine wave shot
+            entities.push(new Laser(this.x, this.y, this.config.bulletColor, this.config.bulletSpeed, this.config.bulletDamage, "sine"));
+        }
+        else if (this.config.name === "INFERNO") {
+            // Dual parallel stream
+            entities.push(new Laser(this.x - 8, this.y, this.config.bulletColor, this.config.bulletSpeed, this.config.bulletDamage));
+            entities.push(new Laser(this.x + 8, this.y, this.config.bulletColor, this.config.bulletSpeed, this.config.bulletDamage));
+        }
+        else if (this.config.bulletCount === 1) {
             entities.push(new Laser(this.x, this.y, this.config.bulletColor, this.config.bulletSpeed, this.config.bulletDamage));
         } else if (this.config.bulletCount === 2) {
             entities.push(new Laser(this.x - 10, this.y, this.config.bulletColor, this.config.bulletSpeed, this.config.bulletDamage));
@@ -399,15 +468,41 @@ export class Player implements Entity {
 
         // Simple Plane Shape
         ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.moveTo(0, -20); // Nose
-        ctx.lineTo(15, 10); // Right Wing
-        ctx.lineTo(0, 5);   // Body
-        ctx.lineTo(-15, 10); // Left Wing
-        ctx.closePath();
+        if (this.config.name === "PHANTOM") {
+            ctx.beginPath();
+            ctx.moveTo(0, -20);
+            ctx.lineTo(10, 5);
+            ctx.lineTo(0, 15);
+            ctx.lineTo(-10, 5);
+            ctx.closePath();
+            // Ghostly glow
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = "#ffffff";
+        }
+        else if (this.config.name === "INFERNO") {
+            ctx.beginPath();
+            ctx.moveTo(0, -25); // Long nose
+            ctx.lineTo(15, -5);
+            ctx.lineTo(20, 15); // Wide wings
+            ctx.lineTo(0, 5);
+            ctx.lineTo(-20, 15);
+            ctx.lineTo(-15, -5);
+            ctx.closePath();
+        }
+        else {
+            // Default Shape
+            ctx.beginPath();
+            ctx.moveTo(0, -20); // Nose
+            ctx.lineTo(15, 10); // Right Wing
+            ctx.lineTo(0, 5);   // Body
+            ctx.lineTo(-15, 10); // Left Wing
+            ctx.closePath();
+        }
 
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = this.color;
+        if (this.config.name !== "PHANTOM") {
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = this.color;
+        }
 
         // Supercharge Visuals
         if (this.isSupercharging) {
@@ -416,6 +511,10 @@ export class Player implements Entity {
             if (this.config.name === "VIPER") {
                 ctx.globalAlpha = 0.5 + Math.random() * 0.5; // Flicker
             }
+            else if (this.config.name === "PHANTOM") {
+                // Blink
+                ctx.globalAlpha = Math.random();
+            }
         }
 
         ctx.fill();
@@ -423,9 +522,13 @@ export class Player implements Entity {
         // Engine flame
         ctx.beginPath();
         ctx.moveTo(-5, 5);
-        ctx.lineTo(0, 15 + Math.random() * 5);
+        if (this.config.name === "INFERNO") {
+            ctx.lineTo(0, 25 + Math.random() * 10); // BIG flame
+        } else {
+            ctx.lineTo(0, 15 + Math.random() * 5);
+        }
         ctx.lineTo(5, 5);
-        ctx.fillStyle = "#ff5500";
+        ctx.fillStyle = this.config.name === "PHANTOM" ? "#aaddff" : "#ff5500";
         ctx.fill();
 
         ctx.restore();
@@ -563,3 +666,79 @@ export class SeekerEnemy extends Enemy {
     }
 }
 
+
+export class SplitterEnemy extends Enemy {
+    constructor(x: number, y: number, difficulty: number) {
+        super(x, y, difficulty);
+        this.color = "#00ffaa"; // Teal
+        this.hp = Math.floor(difficulty) + 1;
+        this.width = 50; // Big
+        this.height = 40;
+    }
+
+    // On death logic needs to be handled in the main loop or here via a callback/flag.
+    // For simplicity, we'll mark a property that "spawnOnDeath"
+    spawnOnDeath = 2; // Spawns 2 minis
+
+    update(canvas: HTMLCanvasElement, entities: Entity[]) {
+        this.time++;
+        this.y += 1.5; // Slow
+        this.x += Math.sin(this.time * 0.05) * 1;
+
+        if (this.y > canvas.height + 50) this.isDead = true;
+    }
+
+    draw(ctx: CanvasRenderingContext2D) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.fillStyle = this.color;
+        // Hexagon-ish
+        ctx.beginPath();
+        ctx.moveTo(0, 20);
+        ctx.lineTo(20, 10);
+        ctx.lineTo(20, -10);
+        ctx.lineTo(0, -20);
+        ctx.lineTo(-20, -10);
+        ctx.lineTo(-20, 10);
+        ctx.closePath();
+
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.color;
+        ctx.fill();
+
+        // Core
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+export class MiniEnemy extends Enemy {
+    constructor(x: number, y: number) {
+        super(x, y, 1);
+        this.color = "#00ffaa";
+        this.width = 20;
+        this.height = 20;
+        this.hp = 1;
+        // Burst out
+        this.vx = (Math.random() - 0.5) * 8;
+        this.vy = (Math.random() - 0.5) * 8;
+    }
+
+    update(canvas: HTMLCanvasElement, entities: Entity[]) {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Drag
+        this.vx *= 0.95;
+        this.vy *= 0.95;
+
+        // Gravity/Flow
+        this.vy += 0.2;
+
+        if (this.y > canvas.height + 50 || this.x < -50 || this.x > canvas.width + 50) this.isDead = true;
+    }
+}

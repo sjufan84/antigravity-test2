@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Entity, Player, Enemy, SeekerEnemy, Laser, Particle, InputState, SHIP_PRESETS, PlayerConfig } from "@/lib/species";
+import { Entity, Player, Enemy, SeekerEnemy, Laser, Particle, InputState, SHIP_PRESETS, PlayerConfig, SplitterEnemy, MiniEnemy } from "@/lib/species";
 
 type GameState = "MENU" | "SELECT_SHIP" | "PLAYING" | "GAMEOVER";
 
@@ -144,98 +144,110 @@ export default function Terrarium() {
             const startX = (canvas.width - (presets.length * (cardWidth + gap) - gap)) / 2;
             const startY = canvas.height / 2 - 175;
 
-            presets.forEach((preset, index) => {
-                const x = startX + index * (cardWidth + gap);
-                const y = startY;
+            // Define Rows manually for perfect centering
+            const row1 = presets.slice(0, 3);
+            const row2 = presets.slice(3, 5);
+            const rows = [row1, row2];
 
-                // Selection Highlight
-                if (selectedShipRef.current.name === preset.name) {
-                    ctx.shadowBlur = 30;
-                    ctx.shadowColor = preset.color;
-                } else {
+            let globalIndex = 0;
+
+            rows.forEach((rowItems, rowIndex) => {
+                const rowWidth = rowItems.length * cardWidth + (rowItems.length - 1) * gap;
+                const startX = (canvas.width - rowWidth) / 2;
+                const y = startY + rowIndex * (cardHeight + 20);
+
+                rowItems.forEach((preset, colIndex) => {
+                    const x = startX + colIndex * (cardWidth + gap);
+                    // Use correct global index for display/logic
+                    const index = globalIndex++;
+
+                    // Selection Highlight
+                    if (selectedShipRef.current.name === preset.name) {
+                        ctx.shadowBlur = 30;
+                        ctx.shadowColor = preset.color;
+                    } else {
+                        ctx.shadowBlur = 0;
+                    }
+
+                    // Card Background
+                    ctx.fillStyle = "#1a1a1a";
+                    ctx.strokeStyle = preset.color;
+                    ctx.lineWidth = 2;
+                    ctx.fillRect(x, y, cardWidth, cardHeight);
+                    ctx.strokeRect(x, y, cardWidth, cardHeight);
                     ctx.shadowBlur = 0;
-                }
 
-                // Card Background
-                ctx.fillStyle = "#1a1a1a";
-                ctx.strokeStyle = preset.color;
-                ctx.lineWidth = 2;
-                ctx.fillRect(x, y, cardWidth, cardHeight);
-                ctx.strokeRect(x, y, cardWidth, cardHeight);
-                ctx.shadowBlur = 0;
-
-                // Ship Preview Helper (Simple triangle)
-                ctx.save();
-                ctx.translate(x + cardWidth / 2, y + 80);
-                ctx.fillStyle = preset.color;
-                ctx.beginPath();
-                ctx.moveTo(0, -20);
-                ctx.lineTo(15, 10);
-                ctx.lineTo(-15, 10);
-                ctx.fill();
-                ctx.restore();
-
-                // Name
-                ctx.fillStyle = preset.color;
-                ctx.font = "bold 24px Courier New";
-                ctx.fillText(preset.name, x + cardWidth / 2, y + 150);
-
-                // Stats
-                ctx.textAlign = "left";
-                ctx.font = "14px Courier New";
-                ctx.fillStyle = "#ccc";
-                const statX = x + 30;
-
-                // Helper to draw bars
-                const drawBar = (label: string, val: number, max: number, py: number) => {
-                    ctx.fillStyle = "#888";
-                    ctx.fillText(label, statX, py);
-
-                    ctx.fillStyle = "#333";
-                    ctx.fillRect(statX + 60, py - 10, 100, 8);
+                    // Ship Preview Helper (Simple triangle)
+                    ctx.save();
+                    ctx.translate(x + cardWidth / 2, y + 80);
                     ctx.fillStyle = preset.color;
-                    ctx.fillRect(statX + 60, py - 10, (val / max) * 100, 8);
-                };
-
-                drawBar("SPD", preset.speed, 12, y + 190);
-                drawBar("HP", preset.maxHp, 6, y + 215);
-                drawBar("DMG", preset.bulletDamage * preset.bulletCount, 10, y + 240);
-
-                // Description
-                ctx.textAlign = "center";
-                ctx.fillStyle = "#aaa";
-                ctx.font = "italic 12px Courier New";
-
-                // Simple word wrap
-                const words = preset.description.split(" ");
-                let line = "";
-                let ly = y + 280;
-                for (let n = 0; n < words.length; n++) {
-                    const testLine = line + words[n] + " ";
-                    const metrics = ctx.measureText(testLine);
-                    if (metrics.width > cardWidth - 20 && n > 0) {
-                        ctx.fillText(line, x + cardWidth / 2, ly);
-                        line = words[n] + " ";
-                        ly += 16;
+                    // Draw based on type (simple approximation)
+                    ctx.beginPath();
+                    if (preset.name === "PHANTOM") {
+                        ctx.moveTo(0, -20); ctx.lineTo(10, 5); ctx.lineTo(0, 15); ctx.lineTo(-10, 5);
+                    } else if (preset.name === "INFERNO") {
+                        ctx.moveTo(0, -20); ctx.lineTo(15, 0); ctx.lineTo(0, 10); ctx.lineTo(-15, 0);
+                    } else {
+                        ctx.moveTo(0, -20); ctx.lineTo(15, 10); ctx.lineTo(-15, 10);
                     }
-                    else {
-                        line = testLine;
+                    ctx.fill();
+                    ctx.restore();
+
+                    // Name
+                    ctx.fillStyle = preset.color;
+                    ctx.font = "bold 24px Courier New";
+                    ctx.fillText(preset.name, x + cardWidth / 2, y + 150);
+
+                    // Stats
+                    ctx.textAlign = "left";
+                    ctx.font = "14px Courier New";
+                    ctx.fillStyle = "#ccc";
+                    const statX = x + 30;
+
+                    // Helper to draw bars
+                    const drawBar = (label: string, val: number, max: number, py: number) => {
+                        ctx.fillStyle = "#888";
+                        ctx.fillText(label, statX, py);
+
+                        ctx.fillStyle = "#333";
+                        ctx.fillRect(statX + 60, py - 10, 100, 8);
+                        ctx.fillStyle = preset.color;
+                        ctx.fillRect(statX + 60, py - 10, Math.min(1, val / max) * 100, 8);
+                    };
+
+                    drawBar("SPD", preset.speed, 12, y + 190);
+                    drawBar("HP", preset.maxHp, 6, y + 215);
+                    drawBar("DMG", preset.bulletDamage * preset.bulletCount, 10, y + 240);
+
+                    // Description
+                    ctx.textAlign = "center";
+                    ctx.fillStyle = "#aaa";
+                    ctx.font = "italic 12px Courier New";
+
+                    // Simple word wrap
+                    const words = preset.description.split(" ");
+                    let line = "";
+                    let ly = y + 280;
+                    for (let n = 0; n < words.length; n++) {
+                        const testLine = line + words[n] + " ";
+                        const metrics = ctx.measureText(testLine);
+                        if (metrics.width > cardWidth - 20 && n > 0) {
+                            ctx.fillText(line, x + cardWidth / 2, ly);
+                            line = words[n] + " ";
+                            ly += 16;
+                        }
+                        else {
+                            line = testLine;
+                        }
                     }
-                }
-                ctx.fillText(line, x + cardWidth / 2, ly);
+                    ctx.fillText(line, x + cardWidth / 2, ly);
 
-                // Key Hint
-                // Shoot input handled in player update
+                    // Key Hint
+                    ctx.fillStyle = "#fff";
+                    ctx.font = "bold 16px Courier New";
+                    ctx.fillText(`PRESS [${index + 1}]`, x + cardWidth / 2, y + cardHeight - 20);
 
-                // Supercharge Input
-                // Key Hint
-                ctx.fillStyle = "#fff";
-                ctx.font = "bold 16px Courier New";
-                ctx.fillText(`PRESS [${index + 1}]`, x + cardWidth / 2, y + cardHeight - 20);
-
-                // Description
-                // Key Hint
-
+                });
             });
         };
 
@@ -284,6 +296,14 @@ export default function Terrarium() {
                     selectedShipRef.current = SHIP_PRESETS.TITAN;
                     resetGame();
                     setGameState("PLAYING");
+                } else if (e.key === "4" || e.code === "Digit4" || e.code === "Numpad4") {
+                    selectedShipRef.current = SHIP_PRESETS.PHANTOM;
+                    resetGame();
+                    setGameState("PLAYING");
+                } else if (e.key === "5" || e.code === "Digit5" || e.code === "Numpad5") {
+                    selectedShipRef.current = SHIP_PRESETS.INFERNO;
+                    resetGame();
+                    setGameState("PLAYING");
                 }
             } else if (gameState === "GAMEOVER") {
                 if (e.code === "Space") {
@@ -303,23 +323,36 @@ export default function Terrarium() {
                 const cardWidth = 220;
                 const cardHeight = 350;
                 const gap = 40;
-                const startX = (canvas.width - (presets.length * (cardWidth + gap) - gap)) / 2;
-                const startY = canvas.height / 2 - 175;
+                const startY = canvas.height / 2 - 250;
 
-                presets.forEach((preset, index) => {
-                    const x = startX + index * (cardWidth + gap);
-                    const y = startY;
+                // Define Rows manually for perfect centering
+                const row1 = presets.slice(0, 3);
+                const row2 = presets.slice(3, 5);
+                const rows = [row1, row2];
 
-                    if (
-                        mouseX >= x &&
-                        mouseX <= x + cardWidth &&
-                        mouseY >= y &&
-                        mouseY <= y + cardHeight
-                    ) {
-                        selectedShipRef.current = preset;
-                        resetGame();
-                        setGameState("PLAYING");
-                    }
+                let globalIndex = 0;
+
+                rows.forEach((rowItems, rowIndex) => {
+                    // Calculate startX for this specific row
+                    const rowWidth = rowItems.length * cardWidth + (rowItems.length - 1) * gap;
+                    const startX = (canvas.width - rowWidth) / 2;
+                    const y = startY + rowIndex * (cardHeight + 20);
+
+                    rowItems.forEach((preset, colIndex) => {
+                        const x = startX + colIndex * (cardWidth + gap);
+                        const index = globalIndex++;
+
+                        if (
+                            mouseX >= x &&
+                            mouseX <= x + cardWidth &&
+                            mouseY >= y &&
+                            mouseY <= y + cardHeight
+                        ) {
+                            selectedShipRef.current = preset;
+                            resetGame();
+                            setGameState("PLAYING");
+                        }
+                    });
                 });
             }
         };
@@ -355,7 +388,10 @@ export default function Terrarium() {
                 // Spawn Enemeies
                 if (Math.random() < 0.02) {
                     const difficulty = 1 + Math.floor(scoreRef.current / 500);
-                    if (Math.random() > 0.8 && scoreRef.current > 200) {
+                    if (Math.random() > 0.9 && scoreRef.current > 400) {
+                        // Spawn Splitter (Rare)
+                        entitiesRef.current.push(new SplitterEnemy(Math.random() * canvas.width, -50, difficulty));
+                    } else if (Math.random() > 0.8 && scoreRef.current > 200) {
                         entitiesRef.current.push(new SeekerEnemy(Math.random() * canvas.width, -50, difficulty));
                     } else {
                         entitiesRef.current.push(new Enemy(Math.random() * canvas.width, -50, difficulty));
@@ -409,6 +445,16 @@ export default function Terrarium() {
                                     if (other.hp <= 0) {
                                         other.isDead = true;
                                         spawnExplosion(other.x, other.y, other.color, 15);
+
+                                        // Handle Splitter Death
+                                        if (other instanceof SplitterEnemy) {
+                                            const s = other as SplitterEnemy;
+                                            if (s.spawnOnDeath > 0) {
+                                                for (let i = 0; i < s.spawnOnDeath; i++) {
+                                                    entitiesRef.current.push(new MiniEnemy(other.x, other.y));
+                                                }
+                                            }
+                                        }
 
                                         if (other.type === "enemy") {
                                             scoreRef.current += 100;

@@ -16,3 +16,4 @@
 | **Agent #6 (Antigravity)** | 2025-12-07 | "Wingman Update": Added Character Selection text-based UI, 3 Ship Classes (Ace, Viper, Titan) with unique stats, and a new "Seeker Enemy" that tracks the player. |
 | **Agent #7 (Repair)** | 2025-12-07 | Codebase Rescue: Fixed critical "canvas undefined" crash and duplicated code errors. Restored the main Game Loop. Added HUD logic (Status: HUD layer is ghosting/invisible). |
 | **Agent #8 (Antigravity)** | 2025-12-07 | "Supercharge Update": Fixed invisible HUD and canvas sizing. Implemented "Supercharge" abilities unique to each ship (Plasma Storm, Phase Shift, Omega Blast). Added Overdrive meter and Shockwave visuals. |
+| **Agent #6 (Antigravity)** | 2025-12-07 | "Expansion Pack": Added PHANTOM (Ghost) and INFERNO (Dragon) ships with unique firing patterns and supercharges. Added SPLITTER enemy that divides on death. Updated selection UI to 5-ship grid. |
